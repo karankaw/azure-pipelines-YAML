@@ -1,0 +1,87 @@
+name: $(Build.BuildId)
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - refs/heads/develop2
+
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: refs/heads/develop2
+    
+stages:
+- stage: CI
+  jobs:
+  - job: BuildPipeline
+    displayName: Build Cora_AI_CCA_Web
+    timeoutInMinutes: 15
+    pool:
+      name: Azure Pipelines
+      vmImage: ubuntu-20.04
+      demands: npm
+    steps:
+  
+    - checkout: self
+    
+    - task: Npm@1
+      displayName: 'npm install'
+      inputs:
+        command: 'install'
+        workingDir: 'CCA-WEB'
+        verbose: false
+        
+    - task: Npm@1
+      displayName: 'npm build(custom)'
+      timeoutInMinutes: 10
+      inputs:
+        command: 'custom'
+        workingDir: 'CCA-WEB'
+        # customCommand: 'run-script build_dev2'
+        customCommand: 'run-script build_dev'
+        verbose: false
+
+    - task: Npm@1
+      displayName: 'npm install server'
+      inputs:
+        command: 'install'
+        workingDir: 'CCA-WEB/doc/configs/dev'
+        verbose: false
+
+    - task: CopyFiles@2
+      displayName: 'Copy angular dist'
+      inputs:
+        SourceFolder: '$(system.defaultworkingdirectory)/CCA-WEB/'
+        Contents: 'dist/**'
+        TargetFolder: '$(build.artifactstagingdirectory)/'
+        
+    - task: CopyFiles@2
+      displayName: 'Copy server'
+      inputs:
+        SourceFolder: '$(system.defaultworkingdirectory)/CCA-WEB/doc/configs/dev/'
+        Contents: '**'
+        TargetFolder: '$(build.artifactstagingdirectory)/'
+
+    - task: Bash@3
+      displayName: 'Bash Debugger'
+      enabled: true
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your commands here
+          
+          ls $(build.artifactstagingdirectory)
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact: CCA-WEB'
+      enabled: true
+      inputs:
+        PathtoPublish: '$(build.artifactstagingdirectory)/'
+        ArtifactName: 'CCA-WEB'
+        publishLocation: 'Container'
+        StoreAsTar: false
+
+    
+    

@@ -1,0 +1,93 @@
+# name: $(BuildDefinitionName)-$(Rev:.r)
+name : $(Build.BuildId)
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - develop2
+
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: develop2
+
+stages:
+- stage: CI
+  jobs:
+  - job: BuildPipeline
+    timeoutInMinutes: 20
+    displayName: Build CCA_API
+    variables:
+      MAVEN_CACHE_FOLDER: $(HOME)/.m2/repository
+      MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
+    pool:
+      name: Azure Pipelines
+      vmImage: ubuntu-latest
+      # name: 'Hosted Ubuntu 1604'
+      # vmImage: ubuntu-16.04
+    steps:
+
+    # - checkout: none
+    - checkout: self
+    
+    - task: Cache@2
+      displayName: Cache Maven LocalRepo
+      inputs:
+        key: '"funcs" | maven |"$(Agent.OS)" | **/pom.xml'
+        restoreKeys: |
+        path: $(MAVEN_CACHE_FOLDER)
+
+    - task: Bash@3
+      displayName: Bash Debug
+      enabled: false
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your commands here
+          echo CCA_API_Develop2_CI
+
+    - task: Maven@3
+      displayName: Maven pom.xml
+      enabled: true
+      inputs:
+        mavenPomFile: 'pom.xml'
+        options: '-DskipTests'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.11'
+        mavenVersionOption: 'Default'
+        mavenAuthenticateFeed: false
+        effectivePomSkip: false
+        sonarQubeRunAnalysis: false
+
+    - task: CopyFiles@2
+      displayName: 'Copy Binary Files to Staging'
+      enabled: true
+      inputs:
+        SourceFolder: '$(system.defaultworkingdirectory)'
+        Contents: |
+          **/target/**
+
+          !**/classes/**
+
+          !**/maven-archiver/**
+
+          !**/*.original
+
+          !**/maven-status/**
+
+          !**/test-classes/**
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        CleanTargetFolder: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifacts
+      enabled: true
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+        StoreAsTar: false 

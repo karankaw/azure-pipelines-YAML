@@ -1,0 +1,54 @@
+# name: $(BuildDefinitionName)-$(Rev:.r)
+name : $(Build.BuildId)
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - refs/heads/develop2
+
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: refs/heads/develop2
+
+stages:
+- stage: CI
+  jobs:
+  - job: BuildPipeline
+    displayName: Build CCA_SOLR
+    timeoutInMinutes: 20
+    pool:
+      name: Azure Pipelines
+      vmImage: ubuntu-20.04
+    steps:
+  
+    - checkout: self
+  
+    - task: CopyFiles@2
+      displayName: 'Copy Binary Files to Staging'
+      enabled: true
+      inputs:
+        SourceFolder: '$(system.defaultworkingdirectory)'
+        Contents: |
+          **/cca-solr/**
+          
+          **/dev/**
+          
+          !**/*.git/**
+          
+          !*.project
+                  
+          !*.yml
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        CleanTargetFolder: true
+        
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifacts
+      enabled: true
+      inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'drop'
+          publishLocation: 'Container'
+          StoreAsTar: false

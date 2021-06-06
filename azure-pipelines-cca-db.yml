@@ -1,0 +1,49 @@
+# name: $(BuildDefinitionName)-$(Rev:.r)
+name : $(Build.BuildId)
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - develop2
+
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: develop2
+
+stages:
+- stage: CI
+  jobs:
+  - job: BuildPipeline
+    displayName: Build CCA_DB
+    timeoutInMinutes: 20
+    pool:
+      name: Azure Pipelines
+      vmImage: ubuntu-20.04
+    steps:
+  
+    - checkout: self
+  
+    - task: CopyFiles@2
+      displayName: 'Copy Binary Files to Staging'
+      enabled: true
+      inputs:
+        SourceFolder: '$(system.defaultworkingdirectory)'
+        Contents: |
+          **
+          !**/.git/**
+          !*.yml
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        CleanTargetFolder: true
+  
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifacts
+      enabled: true
+      inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'drop'
+          publishLocation: 'Container'
+          StoreAsTar: false
+...
